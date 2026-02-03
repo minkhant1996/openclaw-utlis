@@ -77,4 +77,4 @@ convert-pdf convert --text "# Hello\nThis is **bold**" --format markdown
 
 ## License
 
-MIT License - Min Khant Soe, SoeMindAI, Inc.
+MIT License - Min Khant Soe
