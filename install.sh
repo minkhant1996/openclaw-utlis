@@ -27,7 +27,7 @@ mkdir -p "$CREDENTIALS_DIR"
 # ============================================
 # Install openclaw-convert-pdf
 # ============================================
-echo "[1/9] Installing openclaw-convert-pdf..."
+echo "[1/11] Installing openclaw-convert-pdf..."
 
 SKILL_DIR="$SKILLS_DIR/openclaw-convert-pdf"
 mkdir -p "$SKILL_DIR"
@@ -36,7 +36,7 @@ curl -s "$REPO_URL/skills/openclaw-convert-pdf/src/convert-pdf.mjs" -o "$SKILL_D
 curl -s "$REPO_URL/skills/openclaw-convert-pdf/SKILL.md" -o "$SKILL_DIR/SKILL.md" 2>/dev/null || true
 curl -s "$REPO_URL/skills/openclaw-convert-pdf/package.json" -o "$SKILL_DIR/package.json"
 
-echo "[2/9] Installing npm dependencies for convert-pdf..."
+echo "[2/11] Installing npm dependencies for convert-pdf..."
 cd "$SKILL_DIR"
 npm install --silent 2>/dev/null || npm install
 
@@ -59,7 +59,7 @@ chmod +x "$BIN_DIR/convert-pdf"
 # ============================================
 # Install openclaw-youtube
 # ============================================
-echo "[3/9] Installing openclaw-youtube..."
+echo "[3/11] Installing openclaw-youtube..."
 
 YT_SKILL_DIR="$SKILLS_DIR/openclaw-youtube"
 mkdir -p "$YT_SKILL_DIR"
@@ -77,7 +77,7 @@ ln -sf "$YT_SKILL_DIR/yt-channel-clear" "$BIN_DIR/yt-channel-clear"
 # ============================================
 # Install openclaw-x
 # ============================================
-echo "[4/9] Installing openclaw-x..."
+echo "[4/11] Installing openclaw-x..."
 
 X_SKILL_DIR="$SKILLS_DIR/openclaw-x"
 mkdir -p "$X_SKILL_DIR"
@@ -93,9 +93,33 @@ ln -sf "$X_SKILL_DIR/x-channel-downloader" "$BIN_DIR/x-channel-downloader"
 ln -sf "$X_SKILL_DIR/x-channel-clear" "$BIN_DIR/x-channel-clear"
 
 # ============================================
+# Install openclaw-content-agent
+# ============================================
+echo "[5/11] Installing openclaw-content-agent..."
+
+CONTENT_REPO_URL="https://raw.githubusercontent.com/BrookAI-BrookerGroupPCL/openclaw-content-agent/main"
+CONTENT_SKILL_DIR="$SKILLS_DIR/openclaw-content-agent"
+mkdir -p "$CONTENT_SKILL_DIR/src"
+
+curl -s "$CONTENT_REPO_URL/src/content-creator.mjs" -o "$CONTENT_SKILL_DIR/src/content-creator.mjs"
+curl -s "$CONTENT_REPO_URL/package.json" -o "$CONTENT_SKILL_DIR/package.json"
+curl -s "$CONTENT_REPO_URL/SKILL.md" -o "$CONTENT_SKILL_DIR/SKILL.md" 2>/dev/null || true
+curl -s "$CONTENT_REPO_URL/README.md" -o "$CONTENT_SKILL_DIR/README.md" 2>/dev/null || true
+
+cd "$CONTENT_SKILL_DIR"
+npm install --silent 2>/dev/null || npm install
+
+cat > "$BIN_DIR/content-creator" << 'WRAPPER'
+#!/bin/bash
+cd ~/.openclaw/workspace/skills/openclaw-content-agent
+node src/content-creator.mjs "$@"
+WRAPPER
+chmod +x "$BIN_DIR/content-creator"
+
+# ============================================
 # Install openclaw-google-skills
 # ============================================
-echo "[5/9] Installing openclaw-google-skills..."
+echo "[6/11] Installing openclaw-google-skills..."
 
 # Download Google skill files
 for skill in gmail gslides gsheet gdocs gcal gdrive; do
@@ -133,7 +157,7 @@ done
 # ============================================
 # Install yt-dlp dependency
 # ============================================
-echo "[6/9] Checking yt-dlp..."
+echo "[7/11] Checking yt-dlp..."
 
 if command -v yt-dlp &> /dev/null; then
     echo "  yt-dlp already installed"
@@ -146,7 +170,7 @@ fi
 # ============================================
 # Install gallery-dl dependency
 # ============================================
-echo "[7/9] Checking gallery-dl..."
+echo "[8/11] Checking gallery-dl..."
 
 if command -v gallery-dl &> /dev/null; then
     echo "  gallery-dl already installed"
@@ -159,7 +183,7 @@ fi
 # ============================================
 # Setup PATH
 # ============================================
-echo "[8/9] Setting up PATH..."
+echo "[9/11] Setting up PATH..."
 
 if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
     if ! grep -q 'export PATH="$HOME/bin:$PATH"' ~/.bashrc 2>/dev/null; then
@@ -181,7 +205,7 @@ command -v pipx &> /dev/null && pipx ensurepath 2>/dev/null || true
 # ============================================
 # Setup Config Files
 # ============================================
-echo "[9/9] Setting up config files..."
+echo "[10/11] Setting up config files..."
 
 WORKSPACE_DIR="$HOME/.openclaw/workspace"
 mkdir -p "$WORKSPACE_DIR"
@@ -295,6 +319,17 @@ convert-pdf convert --input document.md --output result.pdf
 convert-pdf convert --text "# Title\nContent" --format markdown
 ```
 
+---
+
+## Content Creator (`content-creator`)
+
+```bash
+content-creator create "building in public"              # X thread
+content-creator create "AI tips" --format linkedin       # LinkedIn post
+content-creator create "morning routines" --format script  # Video script
+content-creator create "startup lessons" --format carousel # Carousel
+```
+
 TOOLSEOF
     echo "  Created TOOLS.md"
 fi
@@ -338,6 +373,7 @@ echo ""
 echo "Installed tools:"
 echo ""
 echo "  PDF:      convert-pdf"
+echo "  Content:  content-creator"
 echo "  YouTube:  yt-channel-downloader, yt-channel-clear"
 echo "  X:        x-channel-downloader, x-channel-clear"
 echo "  Google:   gmail, gslides, gsheet, gdocs, gcal, gdrive"
