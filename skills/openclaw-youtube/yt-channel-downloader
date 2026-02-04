@@ -1,0 +1,212 @@
+#!/bin/bash
+# YouTube Channel Downloader with date filtering and tracking
+# Usage: yt-channel-downloader <channel_url> [days|date] [--mp3]
+# Examples:
+#   yt-channel-downloader "https://www.youtube.com/@ChannelName" 7           # Video, last 7 days
+#   yt-channel-downloader "https://www.youtube.com/@ChannelName" 30 --mp3    # MP3, last 30 days
+#   yt-channel-downloader "https://www.youtube.com/@ChannelName" 2024-01-15  # Video, since date
+
+set -e
+
+# Configuration
+DOWNLOAD_DIR="$HOME/youtube-downloads"
+ARCHIVE_FILE="$DOWNLOAD_DIR/.download-archive.txt"
+CSV_LOG="$DOWNLOAD_DIR/download-history.csv"
+YT_DLP="$HOME/.local/bin/yt-dlp"
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Parse arguments
+CHANNEL_URL=""
+DATE_INPUT="7"
+FORMAT="video"
+
+for arg in "$@"; do
+    case $arg in
+        --mp3|--audio|-a)
+            FORMAT="mp3"
+            ;;
+        --video|-v)
+            FORMAT="video"
+            ;;
+        --help|-h)
+            CHANNEL_URL=""
+            break
+            ;;
+        *)
+            if [ -z "$CHANNEL_URL" ]; then
+                CHANNEL_URL="$arg"
+            else
+                DATE_INPUT="$arg"
+            fi
+            ;;
+    esac
+done
+
+if [ -z "$CHANNEL_URL" ]; then
+    echo -e "${GREEN}YouTube Channel Downloader${NC}"
+    echo ""
+    echo -e "${YELLOW}Usage:${NC} yt-channel-downloader <channel_url> [days|date] [options]"
+    echo ""
+    echo -e "${YELLOW}Examples:${NC}"
+    echo "  yt-channel-downloader 'https://www.youtube.com/@ChannelName' 7"
+    echo "  yt-channel-downloader 'https://www.youtube.com/@ChannelName' 30 --mp3"
+    echo "  yt-channel-downloader 'https://www.youtube.com/@ChannelName' 2024-01-15"
+    echo ""
+    echo -e "${YELLOW}Arguments:${NC}"
+    echo "  <channel_url>  YouTube channel URL (@handle or /channel/ID)"
+    echo "  [days|date]    Number of days back OR specific date (YYYY-MM-DD)"
+    echo "                 Default: 7 days"
+    echo ""
+    echo -e "${YELLOW}Options:${NC}"
+    echo "  --mp3, --audio, -a    Download audio only as MP3"
+    echo "  --video, -v           Download video (default, max 1080p)"
+    echo "  --help, -h            Show this help"
+    echo ""
+    echo -e "${YELLOW}Output:${NC}"
+    echo "  Files:    ~/youtube-downloads/@ChannelName/"
+    echo "  Log:      ~/youtube-downloads/download-history.csv"
+    echo "  Archive:  ~/youtube-downloads/.download-archive.txt"
+    exit 1
+fi
+
+# Calculate date filter
+if [[ "$DATE_INPUT" =~ ^[0-9]+$ ]]; then
+    # It's a number of days
+    DATE_AFTER=$(date -d "$DATE_INPUT days ago" +%Y%m%d)
+    DATE_DISPLAY="last $DATE_INPUT days"
+else
+    # It's a specific date
+    DATE_AFTER=$(date -d "$DATE_INPUT" +%Y%m%d 2>/dev/null || echo "")
+    if [ -z "$DATE_AFTER" ]; then
+        echo -e "${RED}Invalid date format. Use YYYY-MM-DD${NC}"
+        exit 1
+    fi
+    DATE_DISPLAY="since $DATE_INPUT"
+fi
+
+# Extract channel name for folder
+CHANNEL_NAME=$(echo "$CHANNEL_URL" | sed -E 's|.*/(@[^/]+).*|\1|; s|.*/channel/([^/]+).*|\1|; s|[^a-zA-Z0-9@_-]|_|g')
+if [ -z "$CHANNEL_NAME" ] || [ "$CHANNEL_NAME" = "$CHANNEL_URL" ]; then
+    CHANNEL_NAME="unknown_channel"
+fi
+
+# Create directories
+CHANNEL_DIR="$DOWNLOAD_DIR/$CHANNEL_NAME"
+mkdir -p "$CHANNEL_DIR"
+
+# Initialize CSV if not exists
+if [ ! -f "$CSV_LOG" ]; then
+    echo "video_id,title,channel,upload_date,download_date,format,file_path,filesize" > "$CSV_LOG"
+fi
+
+# Set format-specific options
+if [ "$FORMAT" = "mp3" ]; then
+    FORMAT_DISPLAY="MP3 (audio)"
+    FORMAT_OPTS="-x --audio-format mp3 --audio-quality 0"
+    FILE_EXT="mp3"
+else
+    FORMAT_DISPLAY="Video (max 1080p)"
+    FORMAT_OPTS="-f best[height<=1080]"
+    FILE_EXT="mp4"
+fi
+
+echo -e "${GREEN}========================================${NC}"
+echo -e "${GREEN}YouTube Channel Downloader${NC}"
+echo -e "${GREEN}========================================${NC}"
+echo -e "Channel: ${YELLOW}$CHANNEL_URL${NC}"
+echo -e "Filter:  ${YELLOW}$DATE_DISPLAY${NC} (after $DATE_AFTER)"
+echo -e "Format:  ${BLUE}$FORMAT_DISPLAY${NC}"
+echo -e "Output:  ${YELLOW}$CHANNEL_DIR${NC}"
+echo -e "${GREEN}========================================${NC}"
+echo ""
+
+# First, list videos to download
+echo -e "${YELLOW}Scanning channel for videos...${NC}"
+
+# Get video list with metadata
+VIDEO_LIST=$($YT_DLP \
+    --flat-playlist \
+    --print "%(id)s|%(title)s|%(upload_date)s" \
+    --dateafter "$DATE_AFTER" \
+    "$CHANNEL_URL/videos" 2>/dev/null || echo "")
+
+if [ -z "$VIDEO_LIST" ]; then
+    echo -e "${YELLOW}No new videos found in the specified date range.${NC}"
+    exit 0
+fi
+
+# Count videos
+VIDEO_COUNT=$(echo "$VIDEO_LIST" | wc -l)
+echo -e "${GREEN}Found $VIDEO_COUNT video(s) to process${NC}"
+echo ""
+
+# Download each video
+DOWNLOADED=0
+SKIPPED=0
+
+while IFS='|' read -r VIDEO_ID TITLE UPLOAD_DATE; do
+    [ -z "$VIDEO_ID" ] && continue
+
+    # Create archive key based on format
+    ARCHIVE_KEY="youtube-${FORMAT} ${VIDEO_ID}"
+
+    # Skip if already in archive (for this format)
+    if grep -qF "$ARCHIVE_KEY" "$ARCHIVE_FILE" 2>/dev/null; then
+        echo -e "${YELLOW}[SKIP]${NC} Already downloaded ($FORMAT): $TITLE"
+        ((SKIPPED++))
+        continue
+    fi
+
+    echo -e "${GREEN}[DOWNLOADING]${NC} $TITLE"
+
+    # Download video/audio
+    OUTPUT_TEMPLATE="$CHANNEL_DIR/%(upload_date)s - %(title)s [%(id)s].%(ext)s"
+
+    if $YT_DLP \
+        $FORMAT_OPTS \
+        -o "$OUTPUT_TEMPLATE" \
+        --no-warnings \
+        --no-playlist \
+        "https://www.youtube.com/watch?v=$VIDEO_ID" 2>/dev/null; then
+
+        # Add to archive manually (with format suffix)
+        echo "$ARCHIVE_KEY" >> "$ARCHIVE_FILE"
+
+        # Find the downloaded file
+        DOWNLOADED_FILE=$(ls -t "$CHANNEL_DIR"/*"[$VIDEO_ID]"* 2>/dev/null | head -1)
+
+        if [ -n "$DOWNLOADED_FILE" ]; then
+            # Get file size
+            FILESIZE=$(du -h "$DOWNLOADED_FILE" 2>/dev/null | cut -f1)
+
+            # Log to CSV (escape commas in title)
+            SAFE_TITLE=$(echo "$TITLE" | sed 's/,/;/g; s/"//g')
+            echo "$VIDEO_ID,\"$SAFE_TITLE\",\"$CHANNEL_NAME\",$UPLOAD_DATE,$(date +%Y-%m-%d_%H:%M:%S),$FORMAT,\"$DOWNLOADED_FILE\",$FILESIZE" >> "$CSV_LOG"
+
+            echo -e "${GREEN}[DONE]${NC} Saved: $(basename "$DOWNLOADED_FILE") ($FILESIZE)"
+            ((DOWNLOADED++))
+        fi
+    else
+        echo -e "${RED}[ERROR]${NC} Failed to download: $TITLE"
+    fi
+
+    echo ""
+done <<< "$VIDEO_LIST"
+
+echo -e "${GREEN}========================================${NC}"
+echo -e "${GREEN}Summary${NC}"
+echo -e "${GREEN}========================================${NC}"
+echo -e "Format:     ${BLUE}$FORMAT_DISPLAY${NC}"
+echo -e "Downloaded: ${GREEN}$DOWNLOADED${NC}"
+echo -e "Skipped:    ${YELLOW}$SKIPPED${NC}"
+echo -e "Total:      $VIDEO_COUNT"
+echo -e ""
+echo -e "Files saved to: ${YELLOW}$CHANNEL_DIR${NC}"
+echo -e "Download log:   ${YELLOW}$CSV_LOG${NC}"
+echo -e "${GREEN}========================================${NC}"

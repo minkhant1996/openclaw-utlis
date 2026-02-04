@@ -4,9 +4,10 @@ A collection of utility skills for OpenClaw.
 
 ## Skills
 
-| Skill | Description | Command |
-|-------|-------------|---------|
+| Skill | Description | Commands |
+|-------|-------------|----------|
 | [openclaw-convert-pdf](skills/openclaw-convert-pdf/) | Convert markdown, HTML, or text to downloadable PDF | `convert-pdf` |
+| [openclaw-youtube](skills/openclaw-youtube/) | Download YouTube videos/audio with date filtering | `yt-channel-downloader`, `yt-channel-clear` |
 
 ## Quick Install
 
@@ -49,11 +50,45 @@ export PATH="$HOME/bin:$PATH"
 
 ## Requirements
 
-- Node.js 20+
+- Node.js 20+ (for convert-pdf)
 - Google Chrome (for PDF generation)
+- yt-dlp (for YouTube downloads)
+- ffmpeg (for MP3 conversion)
 - OpenClaw
 
 ## Usage
+
+### YouTube Channel Downloader
+
+```bash
+# Download videos from last 7 days
+yt-channel-downloader "https://www.youtube.com/@ChannelName" 7
+
+# Download as MP3 (audio only)
+yt-channel-downloader "https://www.youtube.com/@ChannelName" 30 --mp3
+
+# Download since specific date
+yt-channel-downloader "https://www.youtube.com/@ChannelName" 2024-01-15
+```
+
+### YouTube Downloads Cleaner
+
+```bash
+# List all downloaded channels
+yt-channel-clear
+
+# Delete all from a channel
+yt-channel-clear @ChannelName --confirm
+
+# Delete files older than 30 days
+yt-channel-clear @ChannelName --older 30 --confirm
+
+# Delete only MP3s
+yt-channel-clear @ChannelName --mp3 --confirm
+
+# Preview without deleting
+yt-channel-clear @ChannelName --dry-run
+```
 
 ### Convert Markdown to PDF
 ```bash
