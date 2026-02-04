@@ -8,6 +8,7 @@ A collection of utility skills for OpenClaw.
 |-------|-------------|----------|
 | [openclaw-convert-pdf](skills/openclaw-convert-pdf/) | Convert markdown, HTML, or text to downloadable PDF | `convert-pdf` |
 | [openclaw-youtube](skills/openclaw-youtube/) | Download YouTube videos/audio with date filtering | `yt-channel-downloader`, `yt-channel-clear` |
+| [openclaw-x](skills/openclaw-x/) | Download X (Twitter) posts, images, videos | `x-channel-downloader`, `x-channel-clear` |
 
 ## Quick Install
 
@@ -88,6 +89,38 @@ yt-channel-clear @ChannelName --mp3 --confirm
 
 # Preview without deleting
 yt-channel-clear @ChannelName --dry-run
+```
+
+### X (Twitter) Downloader
+
+```bash
+# Download all media from last 7 days
+x-channel-downloader @username 7
+
+# Download videos only, last 30 days
+x-channel-downloader @username 30 --video
+
+# Download images only since specific date
+x-channel-downloader @username 2024-01-15 --image
+
+# Include retweets
+x-channel-downloader @username 7 --retweets
+```
+
+### X Downloads Cleaner
+
+```bash
+# List all accounts
+x-channel-clear
+
+# Delete all from an account
+x-channel-clear @username --confirm
+
+# Delete files older than 30 days
+x-channel-clear @username --older 30 --confirm
+
+# Delete only videos
+x-channel-clear @username --video --confirm
 ```
 
 ### Convert Markdown to PDF
