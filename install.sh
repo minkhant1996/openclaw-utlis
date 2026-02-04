@@ -27,7 +27,7 @@ mkdir -p "$CREDENTIALS_DIR"
 # ============================================
 # Install openclaw-convert-pdf
 # ============================================
-echo "[1/11] Installing openclaw-convert-pdf..."
+echo "[1/12] Installing openclaw-convert-pdf..."
 
 SKILL_DIR="$SKILLS_DIR/openclaw-convert-pdf"
 mkdir -p "$SKILL_DIR"
@@ -36,7 +36,7 @@ curl -s "$REPO_URL/skills/openclaw-convert-pdf/src/convert-pdf.mjs" -o "$SKILL_D
 curl -s "$REPO_URL/skills/openclaw-convert-pdf/SKILL.md" -o "$SKILL_DIR/SKILL.md" 2>/dev/null || true
 curl -s "$REPO_URL/skills/openclaw-convert-pdf/package.json" -o "$SKILL_DIR/package.json"
 
-echo "[2/11] Installing npm dependencies for convert-pdf..."
+echo "[2/12] Installing npm dependencies for convert-pdf..."
 cd "$SKILL_DIR"
 npm install --silent 2>/dev/null || npm install
 
@@ -59,7 +59,7 @@ chmod +x "$BIN_DIR/convert-pdf"
 # ============================================
 # Install openclaw-youtube
 # ============================================
-echo "[3/11] Installing openclaw-youtube..."
+echo "[3/12] Installing openclaw-youtube..."
 
 YT_SKILL_DIR="$SKILLS_DIR/openclaw-youtube"
 mkdir -p "$YT_SKILL_DIR"
@@ -77,7 +77,7 @@ ln -sf "$YT_SKILL_DIR/yt-channel-clear" "$BIN_DIR/yt-channel-clear"
 # ============================================
 # Install openclaw-x
 # ============================================
-echo "[4/11] Installing openclaw-x..."
+echo "[4/12] Installing openclaw-x..."
 
 X_SKILL_DIR="$SKILLS_DIR/openclaw-x"
 mkdir -p "$X_SKILL_DIR"
@@ -95,7 +95,7 @@ ln -sf "$X_SKILL_DIR/x-channel-clear" "$BIN_DIR/x-channel-clear"
 # ============================================
 # Install openclaw-content-agent
 # ============================================
-echo "[5/11] Installing openclaw-content-agent..."
+echo "[5/12] Installing openclaw-content-agent..."
 
 CONTENT_REPO_URL="https://raw.githubusercontent.com/BrookAI-BrookerGroupPCL/openclaw-content-agent/main"
 CONTENT_SKILL_DIR="$SKILLS_DIR/openclaw-content-agent"
@@ -119,7 +119,39 @@ chmod +x "$BIN_DIR/content-creator"
 # ============================================
 # Install openclaw-google-skills
 # ============================================
-echo "[6/11] Installing openclaw-google-skills..."
+echo "[6/12] Installing openclaw-transcribe..."
+
+TRANSCRIBE_DIR="$SKILLS_DIR/openclaw-transcribe"
+mkdir -p "$TRANSCRIBE_DIR/src"
+mkdir -p "$HOME/.openclaw/transcripts"
+
+curl -s "$REPO_URL/skills/openclaw-transcribe/src/transcribe.mjs" -o "$TRANSCRIBE_DIR/src/transcribe.mjs"
+curl -s "$REPO_URL/skills/openclaw-transcribe/package.json" -o "$TRANSCRIBE_DIR/package.json"
+curl -s "$REPO_URL/skills/openclaw-transcribe/SKILL.md" -o "$TRANSCRIBE_DIR/SKILL.md" 2>/dev/null || true
+
+cd "$TRANSCRIBE_DIR"
+npm install --silent 2>/dev/null || npm install
+
+cat > "$BIN_DIR/transcribe" << 'WRAPPER'
+#!/bin/bash
+CWD=$(pwd)
+cd ~/.openclaw/workspace/skills/openclaw-transcribe
+ARGS=()
+for arg in "$@"; do
+  if [[ "$arg" != --* ]] && [[ "$arg" != -* ]] && [[ -e "$CWD/$arg" ]]; then
+    ARGS+=("$CWD/$arg")
+  else
+    ARGS+=("$arg")
+  fi
+done
+node src/transcribe.mjs "${ARGS[@]}"
+WRAPPER
+chmod +x "$BIN_DIR/transcribe"
+
+# ============================================
+# Install openclaw-google-skills
+# ============================================
+echo "[7/12] Installing openclaw-google-skills..."
 
 # Download Google skill files
 for skill in gmail gslides gsheet gdocs gcal gdrive; do
@@ -157,7 +189,7 @@ done
 # ============================================
 # Install yt-dlp dependency
 # ============================================
-echo "[7/11] Checking yt-dlp..."
+echo "[8/12] Checking yt-dlp..."
 
 if command -v yt-dlp &> /dev/null; then
     echo "  yt-dlp already installed"
@@ -170,7 +202,7 @@ fi
 # ============================================
 # Install gallery-dl dependency
 # ============================================
-echo "[8/11] Checking gallery-dl..."
+echo "[9/12] Checking gallery-dl..."
 
 if command -v gallery-dl &> /dev/null; then
     echo "  gallery-dl already installed"
@@ -183,7 +215,7 @@ fi
 # ============================================
 # Setup PATH
 # ============================================
-echo "[9/11] Setting up PATH..."
+echo "[10/12] Setting up PATH..."
 
 if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
     if ! grep -q 'export PATH="$HOME/bin:$PATH"' ~/.bashrc 2>/dev/null; then
@@ -205,7 +237,7 @@ command -v pipx &> /dev/null && pipx ensurepath 2>/dev/null || true
 # ============================================
 # Setup Config Files
 # ============================================
-echo "[10/11] Setting up config files..."
+echo "[11/12] Setting up config files..."
 
 WORKSPACE_DIR="$HOME/.openclaw/workspace"
 mkdir -p "$WORKSPACE_DIR"
@@ -330,6 +362,19 @@ content-creator create "morning routines" --format script  # Video script
 content-creator create "startup lessons" --format carousel # Carousel
 ```
 
+---
+
+## Transcribe (`transcribe`)
+
+```bash
+transcribe video.mp4                     # Transcribe (auto-saves)
+transcribe audio.mp3 --format srt        # SRT subtitles
+transcribe video.mp4 --format vtt        # VTT subtitles
+transcribe meeting.m4a --language th     # Thai language
+transcribe list                          # Show completed
+transcribe video.mp4 --force             # Re-transcribe
+```
+
 TOOLSEOF
     echo "  Created TOOLS.md"
 fi
@@ -372,11 +417,12 @@ echo "========================================"
 echo ""
 echo "Installed tools:"
 echo ""
-echo "  PDF:      convert-pdf"
-echo "  Content:  content-creator"
-echo "  YouTube:  yt-channel-downloader, yt-channel-clear"
-echo "  X:        x-channel-downloader, x-channel-clear"
-echo "  Google:   gmail, gslides, gsheet, gdocs, gcal, gdrive"
+echo "  PDF:        convert-pdf"
+echo "  Content:    content-creator"
+echo "  Transcribe: transcribe"
+echo "  YouTube:    yt-channel-downloader, yt-channel-clear"
+echo "  X:          x-channel-downloader, x-channel-clear"
+echo "  Google:     gmail, gslides, gsheet, gdocs, gcal, gdrive"
 echo ""
 echo "Download locations:"
 echo "  YouTube: $YT_DOWNLOAD_DIR"

@@ -1,0 +1,28 @@
+{
+  "name": "openclaw-transcribe",
+  "version": "1.0.0",
+  "description": "Audio and video transcription skill for OpenClaw using OpenAI",
+  "type": "module",
+  "main": "src/transcribe.mjs",
+  "bin": {
+    "transcribe": "./src/transcribe.mjs"
+  },
+  "scripts": {
+    "start": "node src/transcribe.mjs"
+  },
+  "dependencies": {
+    "openai": "^4.70.0"
+  },
+  "keywords": [
+    "openclaw",
+    "transcribe",
+    "transcription",
+    "audio",
+    "video",
+    "subtitles",
+    "openai",
+    "whisper"
+  ],
+  "author": "BrookAI",
+  "license": "MIT"
+}
