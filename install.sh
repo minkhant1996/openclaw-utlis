@@ -5,7 +5,10 @@
 set -e
 
 REPO_URL="https://raw.githubusercontent.com/minkhant1996/openclaw-utlis/main"
+GOOGLE_REPO_URL="https://raw.githubusercontent.com/minkhant1996/openclaw-google-skills/main"
 SKILLS_DIR="$HOME/.openclaw/workspace/skills"
+GOOGLE_SKILLS_DIR="$HOME/.openclaw/google-skills"
+CREDENTIALS_DIR="$HOME/.openclaw/credentials"
 BIN_DIR="$HOME/bin"
 YT_DOWNLOAD_DIR="$HOME/youtube-downloads"
 X_DOWNLOAD_DIR="$HOME/x-downloads"
@@ -18,25 +21,25 @@ echo ""
 # Create directories
 mkdir -p "$BIN_DIR"
 mkdir -p "$SKILLS_DIR"
+mkdir -p "$GOOGLE_SKILLS_DIR"
+mkdir -p "$CREDENTIALS_DIR"
 
 # ============================================
 # Install openclaw-convert-pdf
 # ============================================
-echo "[1/7] Installing openclaw-convert-pdf..."
+echo "[1/9] Installing openclaw-convert-pdf..."
 
 SKILL_DIR="$SKILLS_DIR/openclaw-convert-pdf"
 mkdir -p "$SKILL_DIR"
 
-# Download files
 curl -s "$REPO_URL/skills/openclaw-convert-pdf/src/convert-pdf.mjs" -o "$SKILL_DIR/convert-pdf.mjs"
-curl -s "$REPO_URL/skills/openclaw-convert-pdf/SKILL.md" -o "$SKILL_DIR/SKILL.md"
+curl -s "$REPO_URL/skills/openclaw-convert-pdf/SKILL.md" -o "$SKILL_DIR/SKILL.md" 2>/dev/null || true
 curl -s "$REPO_URL/skills/openclaw-convert-pdf/package.json" -o "$SKILL_DIR/package.json"
 
-echo "[2/7] Installing npm dependencies for convert-pdf..."
+echo "[2/9] Installing npm dependencies for convert-pdf..."
 cd "$SKILL_DIR"
 npm install --silent 2>/dev/null || npm install
 
-# Create wrapper script
 cat > "$BIN_DIR/convert-pdf" << 'WRAPPER'
 #!/bin/bash
 CWD=$(pwd)
@@ -56,83 +59,107 @@ chmod +x "$BIN_DIR/convert-pdf"
 # ============================================
 # Install openclaw-youtube
 # ============================================
-echo "[3/7] Installing openclaw-youtube..."
+echo "[3/9] Installing openclaw-youtube..."
 
 YT_SKILL_DIR="$SKILLS_DIR/openclaw-youtube"
 mkdir -p "$YT_SKILL_DIR"
 mkdir -p "$YT_DOWNLOAD_DIR"
 
-# Download files
 curl -s "$REPO_URL/skills/openclaw-youtube/yt-channel-downloader" -o "$YT_SKILL_DIR/yt-channel-downloader"
 curl -s "$REPO_URL/skills/openclaw-youtube/yt-channel-clear" -o "$YT_SKILL_DIR/yt-channel-clear"
-curl -s "$REPO_URL/skills/openclaw-youtube/README.md" -o "$YT_SKILL_DIR/README.md"
+curl -s "$REPO_URL/skills/openclaw-youtube/README.md" -o "$YT_SKILL_DIR/README.md" 2>/dev/null || true
 chmod +x "$YT_SKILL_DIR/yt-channel-downloader"
 chmod +x "$YT_SKILL_DIR/yt-channel-clear"
 
-# Create symlinks in bin
 ln -sf "$YT_SKILL_DIR/yt-channel-downloader" "$BIN_DIR/yt-channel-downloader"
 ln -sf "$YT_SKILL_DIR/yt-channel-clear" "$BIN_DIR/yt-channel-clear"
 
 # ============================================
 # Install openclaw-x
 # ============================================
-echo "[4/7] Installing openclaw-x..."
+echo "[4/9] Installing openclaw-x..."
 
 X_SKILL_DIR="$SKILLS_DIR/openclaw-x"
 mkdir -p "$X_SKILL_DIR"
 mkdir -p "$X_DOWNLOAD_DIR"
 
-# Download files
 curl -s "$REPO_URL/skills/openclaw-x/x-channel-downloader" -o "$X_SKILL_DIR/x-channel-downloader"
 curl -s "$REPO_URL/skills/openclaw-x/x-channel-clear" -o "$X_SKILL_DIR/x-channel-clear"
-curl -s "$REPO_URL/skills/openclaw-x/README.md" -o "$X_SKILL_DIR/README.md"
+curl -s "$REPO_URL/skills/openclaw-x/README.md" -o "$X_SKILL_DIR/README.md" 2>/dev/null || true
 chmod +x "$X_SKILL_DIR/x-channel-downloader"
 chmod +x "$X_SKILL_DIR/x-channel-clear"
 
-# Create symlinks in bin
 ln -sf "$X_SKILL_DIR/x-channel-downloader" "$BIN_DIR/x-channel-downloader"
 ln -sf "$X_SKILL_DIR/x-channel-clear" "$BIN_DIR/x-channel-clear"
 
 # ============================================
+# Install openclaw-google-skills
+# ============================================
+echo "[5/9] Installing openclaw-google-skills..."
+
+# Download Google skill files
+for skill in gmail gslides gsheet gdocs gcal gdrive; do
+    curl -s "$GOOGLE_REPO_URL/src/${skill}.mjs" -o "$GOOGLE_SKILLS_DIR/${skill}.mjs" 2>/dev/null || true
+done
+
+# Create package.json if not exists
+if [ ! -f "$GOOGLE_SKILLS_DIR/package.json" ]; then
+    cat > "$GOOGLE_SKILLS_DIR/package.json" << 'PKGJSON'
+{
+  "name": "openclaw-google-skills",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "googleapis": "^140.0.0"
+  }
+}
+PKGJSON
+fi
+
+# Install npm dependencies
+cd "$GOOGLE_SKILLS_DIR"
+npm install --silent 2>/dev/null || npm install
+
+# Create wrapper scripts for each Google tool
+for skill in gmail gslides gsheet gdocs gcal gdrive; do
+    cat > "$BIN_DIR/$skill" << WRAPPER
+#!/bin/bash
+cd ~/.openclaw/google-skills
+node ${skill}.mjs "\$@"
+WRAPPER
+    chmod +x "$BIN_DIR/$skill"
+done
+
+# ============================================
 # Install yt-dlp dependency
 # ============================================
-echo "[5/7] Checking yt-dlp dependency..."
+echo "[6/9] Checking yt-dlp..."
 
 if command -v yt-dlp &> /dev/null; then
-    echo "  yt-dlp already installed: $(yt-dlp --version)"
+    echo "  yt-dlp already installed"
 elif command -v pipx &> /dev/null; then
-    echo "  Installing yt-dlp via pipx..."
-    pipx install yt-dlp
+    pipx install yt-dlp 2>/dev/null || true
 elif command -v pip3 &> /dev/null; then
-    echo "  Installing yt-dlp via pip3..."
-    pip3 install --user yt-dlp 2>/dev/null || pip3 install --user --break-system-packages yt-dlp
-else
-    echo "  WARNING: Could not install yt-dlp. Install manually:"
-    echo "    pipx install yt-dlp"
+    pip3 install --user yt-dlp 2>/dev/null || pip3 install --user --break-system-packages yt-dlp 2>/dev/null || true
 fi
 
 # ============================================
 # Install gallery-dl dependency
 # ============================================
-echo "[6/7] Checking gallery-dl dependency..."
+echo "[7/9] Checking gallery-dl..."
 
 if command -v gallery-dl &> /dev/null; then
-    echo "  gallery-dl already installed: $(gallery-dl --version 2>/dev/null | head -1)"
+    echo "  gallery-dl already installed"
 elif command -v pipx &> /dev/null; then
-    echo "  Installing gallery-dl via pipx..."
-    pipx install gallery-dl
+    pipx install gallery-dl 2>/dev/null || true
 elif command -v pip3 &> /dev/null; then
-    echo "  Installing gallery-dl via pip3..."
-    pip3 install --user gallery-dl 2>/dev/null || pip3 install --user --break-system-packages gallery-dl
-else
-    echo "  WARNING: Could not install gallery-dl. Install manually:"
-    echo "    pipx install gallery-dl"
+    pip3 install --user gallery-dl 2>/dev/null || pip3 install --user --break-system-packages gallery-dl 2>/dev/null || true
 fi
 
 # ============================================
 # Setup PATH
 # ============================================
-echo "[7/7] Setting up PATH..."
+echo "[8/9] Setting up PATH..."
 
 if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
     if ! grep -q 'export PATH="$HOME/bin:$PATH"' ~/.bashrc 2>/dev/null; then
@@ -141,7 +168,6 @@ if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
     if [ -f ~/.zshrc ] && ! grep -q 'export PATH="$HOME/bin:$PATH"' ~/.zshrc 2>/dev/null; then
         echo 'export PATH="$HOME/bin:$PATH"' >> ~/.zshrc
     fi
-    export PATH="$BIN_DIR:$PATH"
 fi
 
 if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
@@ -150,87 +176,130 @@ if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
     fi
 fi
 
-# Ensure pipx path
 command -v pipx &> /dev/null && pipx ensurepath 2>/dev/null || true
 
 # ============================================
-# Setup OpenClaw Agent Config
+# Setup Config Files
 # ============================================
+echo "[9/9] Setting up config files..."
+
 WORKSPACE_DIR="$HOME/.openclaw/workspace"
 mkdir -p "$WORKSPACE_DIR"
 
-# Create/Update TOOLS.md with download tools
+# Create/Update TOOLS.md
 TOOLS_FILE="$WORKSPACE_DIR/TOOLS.md"
-if [ ! -f "$TOOLS_FILE" ] || ! grep -q "YouTube Channel Downloader" "$TOOLS_FILE" 2>/dev/null; then
-    cat >> "$TOOLS_FILE" << 'TOOLSEOF'
+if [ ! -f "$TOOLS_FILE" ]; then
+    cat > "$TOOLS_FILE" << 'TOOLSEOF'
+# Tool Usage Guide
+
+## CRITICAL RULES
+
+1. **NEVER use browser** for Google Workspace services
+2. **ALWAYS use CLI commands** listed below
+3. **NEVER guess** - check command help with `<command> --help`
 
 ---
 
-## YouTube Channel Downloader (`yt-channel-downloader`)
-
-Download videos/MP3 from YouTube channels with date filtering.
+## Google Slides (`gslides`)
 
 ```bash
-# Download videos from last 7 days
-yt-channel-downloader "https://www.youtube.com/@ChannelName" 7
-
-# Download as MP3 (audio only)
-yt-channel-downloader "https://www.youtube.com/@ChannelName" 30 --mp3
-
-# Download since specific date
-yt-channel-downloader "https://www.youtube.com/@ChannelName" 2024-01-15
+gslides create "Presentation Name"
+gslides title-slide <id> --title "Title" --subtitle "Subtitle"
+gslides create-slide <id> --title "Title" --body "Line1\nLine2" --bullets
+gslides read <id>
 ```
 
-**Options:** `--mp3` (audio), `--video` (default), days or YYYY-MM-DD date
+---
+
+## Google Sheets (`gsheet`)
+
+```bash
+gsheet create "Spreadsheet Name"
+gsheet read <id> --range "A1:D20"
+gsheet write <id> --range "A1" --value "Header"
+gsheet add-chart <id> --labels "A2:A10" --values "B2:B10" --type column
+```
 
 ---
 
-## YouTube Downloads Cleaner (`yt-channel-clear`)
+## Google Docs (`gdocs`)
 
 ```bash
-yt-channel-clear                           # List all channels
-yt-channel-clear @Channel --confirm        # Delete all from channel
-yt-channel-clear @Channel --older 30 -y    # Delete older than 30 days
-yt-channel-clear @Channel --mp3 --confirm  # Delete only MP3s
-yt-channel-clear @Channel --dry-run        # Preview without deleting
+gdocs create "Document Name"
+gdocs read <id>
+gdocs append <id> --text "Content"
+gdocs heading <id> --text "Section" --level 1
+```
+
+---
+
+## Gmail (`gmail`)
+
+**TWO-STEP CONFIRMATION REQUIRED:**
+
+```bash
+# Step 1: Preview
+gmail send --to "email@example.com" --subject "Subject" --body "Message"
+
+# Step 2: After approval, add --confirm
+gmail send --to "email@example.com" --subject "Subject" --body "Message" --confirm
+```
+
+---
+
+## Google Calendar (`gcal`)
+
+```bash
+gcal list
+gcal today
+gcal create "Event" --start "tomorrow 2pm" --duration 1h
+```
+
+---
+
+## Google Drive (`gdrive`)
+
+```bash
+gdrive list
+gdrive search "filename"
+gdrive upload file.pdf --to <folderId>
+gdrive download <fileId> --output local.pdf
+```
+
+---
+
+## YouTube Downloader (`yt-channel-downloader`)
+
+```bash
+yt-channel-downloader "https://youtube.com/@Channel" 7         # Last 7 days
+yt-channel-downloader "https://youtube.com/@Channel" 30 --mp3  # MP3, 30 days
+yt-channel-clear @Channel --confirm                            # Delete
 ```
 
 ---
 
 ## X (Twitter) Downloader (`x-channel-downloader`)
 
-Download posts, images, videos from public X accounts.
-
 ```bash
-# Download all media from last 7 days
-x-channel-downloader @username 7
-
-# Download videos only
-x-channel-downloader @username 30 --video
-
-# Download images only
-x-channel-downloader @username 7 --image
-
-# Include retweets
-x-channel-downloader @username 7 --retweets
+x-channel-downloader @username 7            # Last 7 days
+x-channel-downloader @username 30 --video   # Videos only
+x-channel-clear @username --confirm         # Delete
 ```
 
 ---
 
-## X Downloads Cleaner (`x-channel-clear`)
+## PDF Converter (`convert-pdf`)
 
 ```bash
-x-channel-clear                           # List accounts
-x-channel-clear @username --confirm       # Delete all
-x-channel-clear @username --older 30 -y   # Delete old files
-x-channel-clear @username --video -y      # Delete only videos
+convert-pdf convert --input document.md --output result.pdf
+convert-pdf convert --text "# Title\nContent" --format markdown
 ```
 
 TOOLSEOF
-    echo "  Added download tools to TOOLS.md"
+    echo "  Created TOOLS.md"
 fi
 
-# Create gallery-dl config for X/Twitter
+# Create gallery-dl config
 GALLERY_CONFIG_DIR="$HOME/.config/gallery-dl"
 GALLERY_CONFIG="$GALLERY_CONFIG_DIR/config.json"
 mkdir -p "$GALLERY_CONFIG_DIR"
@@ -241,10 +310,7 @@ if [ ! -f "$GALLERY_CONFIG" ]; then
     "extractor": {
         "twitter": {
             "cards": true,
-            "conversations": false,
-            "pinned": false,
             "quoted": true,
-            "replies": false,
             "retweets": false,
             "text-tweets": false,
             "videos": true
@@ -257,8 +323,12 @@ if [ ! -f "$GALLERY_CONFIG" ]; then
     }
 }
 GALLERYEOF
-    echo "  Created gallery-dl config at $GALLERY_CONFIG"
+    echo "  Created gallery-dl config"
 fi
+
+# Check for Google credentials
+GOOGLE_CREDS="$CREDENTIALS_DIR/google-oauth-client.json"
+GOOGLE_TOKEN="$CREDENTIALS_DIR/google-token.json"
 
 echo ""
 echo "========================================"
@@ -267,26 +337,41 @@ echo "========================================"
 echo ""
 echo "Installed tools:"
 echo ""
-echo "  convert-pdf           - Markdown/HTML/text to PDF"
-echo "    convert-pdf convert --input doc.md"
-echo ""
-echo "  yt-channel-downloader - Download YouTube videos/MP3"
-echo "    yt-channel-downloader 'https://youtube.com/@Channel' 7"
-echo "    yt-channel-downloader 'https://youtube.com/@Channel' 30 --mp3"
-echo ""
-echo "  yt-channel-clear      - Clean up YouTube downloads"
-echo "    yt-channel-clear @Channel --confirm"
-echo ""
-echo "  x-channel-downloader  - Download X (Twitter) posts"
-echo "    x-channel-downloader @username 7"
-echo "    x-channel-downloader @username 30 --video"
-echo ""
-echo "  x-channel-clear       - Clean up X downloads"
-echo "    x-channel-clear @username --confirm"
+echo "  PDF:      convert-pdf"
+echo "  YouTube:  yt-channel-downloader, yt-channel-clear"
+echo "  X:        x-channel-downloader, x-channel-clear"
+echo "  Google:   gmail, gslides, gsheet, gdocs, gcal, gdrive"
 echo ""
 echo "Download locations:"
 echo "  YouTube: $YT_DOWNLOAD_DIR"
 echo "  X:       $X_DOWNLOAD_DIR"
+echo ""
+
+# Google credentials check
+if [ ! -f "$GOOGLE_CREDS" ]; then
+    echo "========================================"
+    echo "  Google Setup Required"
+    echo "========================================"
+    echo ""
+    echo "To use Google tools (gmail, gslides, etc.):"
+    echo ""
+    echo "1. Go to: https://console.cloud.google.com/"
+    echo "2. Create OAuth 2.0 credentials (Desktop app)"
+    echo "3. Download JSON and save as:"
+    echo "   $GOOGLE_CREDS"
+    echo ""
+    echo "4. Run any Google command to authenticate:"
+    echo "   gmail inbox"
+    echo ""
+else
+    echo "Google credentials: OK"
+    if [ -f "$GOOGLE_TOKEN" ]; then
+        echo "Google token: OK (authenticated)"
+    else
+        echo "Google token: Run 'gmail inbox' to authenticate"
+    fi
+fi
+
 echo ""
 echo "NOTE: Restart your terminal or run:"
 echo "  source ~/.bashrc"
