@@ -153,6 +153,113 @@ fi
 # Ensure pipx path
 command -v pipx &> /dev/null && pipx ensurepath 2>/dev/null || true
 
+# ============================================
+# Setup OpenClaw Agent Config
+# ============================================
+WORKSPACE_DIR="$HOME/.openclaw/workspace"
+mkdir -p "$WORKSPACE_DIR"
+
+# Create/Update TOOLS.md with download tools
+TOOLS_FILE="$WORKSPACE_DIR/TOOLS.md"
+if [ ! -f "$TOOLS_FILE" ] || ! grep -q "YouTube Channel Downloader" "$TOOLS_FILE" 2>/dev/null; then
+    cat >> "$TOOLS_FILE" << 'TOOLSEOF'
+
+---
+
+## YouTube Channel Downloader (`yt-channel-downloader`)
+
+Download videos/MP3 from YouTube channels with date filtering.
+
+```bash
+# Download videos from last 7 days
+yt-channel-downloader "https://www.youtube.com/@ChannelName" 7
+
+# Download as MP3 (audio only)
+yt-channel-downloader "https://www.youtube.com/@ChannelName" 30 --mp3
+
+# Download since specific date
+yt-channel-downloader "https://www.youtube.com/@ChannelName" 2024-01-15
+```
+
+**Options:** `--mp3` (audio), `--video` (default), days or YYYY-MM-DD date
+
+---
+
+## YouTube Downloads Cleaner (`yt-channel-clear`)
+
+```bash
+yt-channel-clear                           # List all channels
+yt-channel-clear @Channel --confirm        # Delete all from channel
+yt-channel-clear @Channel --older 30 -y    # Delete older than 30 days
+yt-channel-clear @Channel --mp3 --confirm  # Delete only MP3s
+yt-channel-clear @Channel --dry-run        # Preview without deleting
+```
+
+---
+
+## X (Twitter) Downloader (`x-channel-downloader`)
+
+Download posts, images, videos from public X accounts.
+
+```bash
+# Download all media from last 7 days
+x-channel-downloader @username 7
+
+# Download videos only
+x-channel-downloader @username 30 --video
+
+# Download images only
+x-channel-downloader @username 7 --image
+
+# Include retweets
+x-channel-downloader @username 7 --retweets
+```
+
+---
+
+## X Downloads Cleaner (`x-channel-clear`)
+
+```bash
+x-channel-clear                           # List accounts
+x-channel-clear @username --confirm       # Delete all
+x-channel-clear @username --older 30 -y   # Delete old files
+x-channel-clear @username --video -y      # Delete only videos
+```
+
+TOOLSEOF
+    echo "  Added download tools to TOOLS.md"
+fi
+
+# Create gallery-dl config for X/Twitter
+GALLERY_CONFIG_DIR="$HOME/.config/gallery-dl"
+GALLERY_CONFIG="$GALLERY_CONFIG_DIR/config.json"
+mkdir -p "$GALLERY_CONFIG_DIR"
+
+if [ ! -f "$GALLERY_CONFIG" ]; then
+    cat > "$GALLERY_CONFIG" << 'GALLERYEOF'
+{
+    "extractor": {
+        "twitter": {
+            "cards": true,
+            "conversations": false,
+            "pinned": false,
+            "quoted": true,
+            "replies": false,
+            "retweets": false,
+            "text-tweets": false,
+            "videos": true
+        },
+        "base-directory": "~/x-downloads/"
+    },
+    "downloader": {
+        "rate": "1M",
+        "retries": 3
+    }
+}
+GALLERYEOF
+    echo "  Created gallery-dl config at $GALLERY_CONFIG"
+fi
+
 echo ""
 echo "========================================"
 echo "  Installation Complete!"
