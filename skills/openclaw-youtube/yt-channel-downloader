@@ -91,8 +91,25 @@ else
 fi
 
 # Extract channel name for folder
-CHANNEL_NAME=$(echo "$CHANNEL_URL" | sed -E 's|.*/(@[^/]+).*|\1|; s|.*/channel/([^/]+).*|\1|; s|[^a-zA-Z0-9@_-]|_|g')
-if [ -z "$CHANNEL_NAME" ] || [ "$CHANNEL_NAME" = "$CHANNEL_URL" ]; then
+# Handle various YouTube URL formats:
+# - youtube.com/@handle
+# - youtube.com/c/channelname
+# - youtube.com/channel/UCXXXX
+# - youtube.com/user/username
+if [[ "$CHANNEL_URL" =~ @([^/]+) ]]; then
+    CHANNEL_NAME="@${BASH_REMATCH[1]}"
+elif [[ "$CHANNEL_URL" =~ /c/([^/]+) ]]; then
+    CHANNEL_NAME="@${BASH_REMATCH[1]}"
+elif [[ "$CHANNEL_URL" =~ /user/([^/]+) ]]; then
+    CHANNEL_NAME="@${BASH_REMATCH[1]}"
+elif [[ "$CHANNEL_URL" =~ /channel/([^/]+) ]]; then
+    CHANNEL_NAME="${BASH_REMATCH[1]}"
+else
+    # Fallback: extract last meaningful segment
+    CHANNEL_NAME=$(echo "$CHANNEL_URL" | sed -E 's|.*/([^/]+)/?$|\1|; s|[^a-zA-Z0-9@_-]|_|g')
+fi
+
+if [ -z "$CHANNEL_NAME" ]; then
     CHANNEL_NAME="unknown_channel"
 fi
 
